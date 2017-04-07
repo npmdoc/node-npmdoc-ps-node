@@ -1,0 +1,263 @@
+<div class="apidocDiv">
+<style>
+/*csslint
+*/
+.apidocDiv {
+    background: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+}
+.apidocDiv a[href] {
+    color: #33f;
+    font-weight: bold;
+    text-decoration: none;
+}
+.apidocDiv a[href]:hover {
+    text-decoration: underline;
+}
+.apidocCodeCommentSpan {
+    background: #bbf;
+    color: #000;
+    display: block;
+}
+.apidocCodeKeywordSpan {
+    color: #d00;
+    font-weight: bold;
+}
+.apidocCodePre {
+    background: #eef;
+    border: 1px solid;
+    color: #777;
+    padding: 5px;
+    white-space: pre-wrap;
+}
+.apidocFooterDiv {
+    margin-top: 20px;
+    text-align: center;
+}
+.apidocModuleLi {
+    margin-top: 10px;
+}
+.apidocSectionDiv {
+    border-top: 1px solid;
+    margin-top: 20px;
+}
+.apidocSignatureSpan {
+    color: #777;
+    font-weight: bold;
+}
+</style>
+<h1>api documentation for
+    <a
+
+        href="https://github.com/neekey/ps#readme"
+
+    >ps-node (v0.1.5)</a>
+</h1>
+<h4>A process lookup utility</h4>
+<div class="apidocSectionDiv"><a
+    href="#apidoc.tableOfContents"
+    id="apidoc.tableOfContents"
+><h1>table of contents</h1></a><ol>
+
+    <li class="apidocModuleLi"><a href="#apidoc.module.ps-node">module ps-node</a><ol>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.ps-node.kill">
+            function <span class="apidocSignatureSpan">ps-node.</span>kill
+            <span class="apidocSignatureSpan">( pid, signal, next )</span>
+            </a>
+
+        </li>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.ps-node.lookup">
+            function <span class="apidocSignatureSpan">ps-node.</span>lookup
+            <span class="apidocSignatureSpan">(query, callback)</span>
+            </a>
+
+        </li>
+
+    </ol></li>
+
+</ol></div>
+
+<div class="apidocSectionDiv">
+<h1><a href="#apidoc.module.ps-node" id="apidoc.module.ps-node">module ps-node</a></h1>
+
+
+    <h2>
+        <a href="#apidoc.element.ps-node.kill" id="apidoc.element.ps-node.kill">
+        function <span class="apidocSignatureSpan">ps-node.</span>kill
+        <span class="apidocSignatureSpan">( pid, signal, next )</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">kill = function ( pid, signal, next ){
+  //opts are optional
+  if(arguments.length == 2 &#x26;&#x26; typeof signal == &#x27;function&#x27;){
+    next = signal;
+    signal = undefined;
+  }
+
+  if (typeof signal === &#x27;object&#x27;) {
+    signal = signal.signal;
+  }
+
+  try {
+    process.kill(pid, signal);
+  } catch(e) {
+    return next &#x26;&#x26; next(e);
+  }
+
+  var checkConfident = 0;
+
+  function checkKilled(finishCallback) {
+    console.log(&#x27;check kill success&#x27;, pid, &#x27;confident&#x27;, checkConfident);
+    exports.lookup({ pid: pid }, function(err, list) {
+      console.log(&#x27;check kill success result:&#x27;, (list || []).length);
+      if (err) {
+          finishCallback &#x26;&#x26; finishCallback(err);
+        } else if(list.length &#x3e; 0) {
+          checkKilled(finishCallback);
+        } else {
+          checkConfident++;
+          if (checkConfident === 5) {
+            finishCallback &#x26;&#x26; finishCallback();
+          } else {
+            checkKilled(finishCallback);
+          }
+        }
+    });
+  }
+
+  next &#x26;&#x26; checkKilled(next);
+}</pre></li>
+    <li>example usage<pre class="apidocCodePre">...
+
+Also, you can use `kill` to kill process by `pid`:
+
+```javascript
+var ps = require(&#x27;ps-node&#x27;);
+
+// A simple pid lookup
+ps.<span class="apidocCodeKeywordSpan">kill</span>( &#x27;12345&#x27;, function( err ) {
+    if (err) {
+        throw new Error( err );
+    }
+    else {
+        console.log( &#x27;Process %s has been killed!&#x27;, pid );
+    }
+});
+...</pre></li>
+    </ul>
+
+
+
+    <h2>
+        <a href="#apidoc.element.ps-node.lookup" id="apidoc.element.ps-node.lookup">
+        function <span class="apidocSignatureSpan">ps-node.</span>lookup
+        <span class="apidocSignatureSpan">(query, callback)</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">lookup = function (query, callback) {
+
+<span class="apidocCodeCommentSpan">  /**
+   * add &#x27;l&#x27; as default ps arguments, since the default ps output in linux like &#x22;ubuntu&#x22;, wont include command arguments
+   */
+</span>  var exeArgs = query.psargs || [&#x27;l&#x27;];
+  var filter = {};
+  var idList;
+
+  // Lookup by PID
+  if (query.pid) {
+
+    if (Array.isArray(query.pid)) {
+      idList = query.pid;
+    }
+    else {
+      idList = [query.pid];
+    }
+
+    // Cast all PIDs as Strings
+    idList = idList.map(function (v) {
+      return String(v);
+    });
+
+  }
+
+
+  if (query.command) {
+    filter[&#x27;command&#x27;] = new RegExp(query.command, &#x27;i&#x27;);
+  }
+
+  if (query.arguments) {
+    filter[&#x27;arguments&#x27;] = new RegExp(query.arguments, &#x27;i&#x27;);
+  }
+
+  if (query.ppid) {
+    filter[&#x27;ppid&#x27;] = new RegExp(query.ppid);
+  }
+
+  return Exec(exeArgs, function (err, output) {
+    if (err) {
+      return callback(err);
+    }
+    else {
+      var processList = parseGrid(output);
+      var resultList = [];
+
+      processList.forEach(function (p) {
+
+        var flt;
+        var type;
+        var result = true;
+
+        if (idList &#x26;&#x26; idList.indexOf(String(p.pid)) &#x3c; 0) {
+          return;
+        }
+
+        for (type in filter) {
+          flt = filter[type];
+          result = flt.test(p[type]) ? result : false;
+        }
+
+        if (result) {
+          resultList.push(p);
+        }
+      });
+
+      callback(null, resultList);
+    }
+  });
+}</pre></li>
+    <li>example usage<pre class="apidocCodePre">...
+
+Lookup process with specified `pid`:
+
+```javascript
+var ps = require(&#x27;ps-node&#x27;);
+
+// A simple pid lookup
+ps.<span class="apidocCodeKeywordSpan">lookup</span>({ pid: 12345 }, function(err, resultList ) {
+if (err) {
+    throw new Error( err );
+}
+
+var process = resultList[ 0 ];
+
+if( process ){
+...</pre></li>
+    </ul>
+
+
+</div>
+
+<div class="apidocFooterDiv">
+    [ this document was created with
+    <a href="https://github.com/kaizhu256/node-utility2" target="_blank">utility2</a>
+    ]
+</div>
+</div>
